@@ -1,0 +1,2 @@
+These scripts generate LAMMPS input files to run our molecular dynamics routine.
+The templates for each component of the routine are found in the template_*.txt files.

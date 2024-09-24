@@ -1,0 +1,53 @@
+log log.Pd${PD_PCTG}Au${AU_PCTG}_${N_ATOMS}_${T_T}K_ss_1
+units          metal
+atom_style     atomic
+dimension      3
+boundary       p p p
+newton on
+read_data      ../Pd${N_ATOMS}_cuboct.dat 
+
+pair_style allegro
+pair_coeff * * ../../deployed_PdAu_r6_l2_env8_final_model_tf_off_reduced_scale_cutoff1.pth Pd Au H # allegro potential, order matters
+
+mass 1 106.42
+mass 2 196.97
+mass 3 1.008
+
+group           Pd_mod type 1 # group all Pd to randomly switch to Au
+
+set group Pd_mod type/subset 2 ${GOLD_ATOMS} 482793 # switch ${GOLD_ATOMS} atoms (${AU_PCTG}%) to Au
+
+group           Pd type 1 # regroup atoms
+group           Au type 2
+
+#min_style cg
+#minimize 1e-12 1e-12 1000000 1000000
+
+velocity all create ${T_T}.0 1234567 loop geom 
+
+thermo ${DUMP_FREQ} 
+thermo_style    custom step time temp pe pxx pyy pzz spcpu cpuremain ndanger
+
+timestep ${TIMESTEP}
+
+${MOMENTA_PD}
+${MOMENTA_AU}
+
+restart ${RESTART_STEPS} restart_Pd${PD_PCTG}Au${AU_PCTG}_${N_ATOMS}_cuboct_${T_T}K_backup_ss_*.dat # restart printing
+
+dump 1 all custom ${DUMP_FREQ} Pd${PD_PCTG}Au${AU_PCTG}_${N_ATOMS}_cuboct_${T_T}K_ss_mcmd.all.bin id type x y z
+dump_modify 1 sort id
+    fix 3 all nvt temp ${T_T} ${T_T} ${DAMPING_FREQ}
+    fix 4 all atom/swap ${SWAP_FREQ} ${SWAP_ATOMS} 54321 ${T_T} types 1 2 ke yes semi-grand no # Conserve KE, particle number and fraction composition
+        run ${SS_STEPS} # ${SS_TIME} ns
+        write_data snap_${UNITARY_TIMESTEP}fs_${N_ATOMS}_Pd${PD_PCTG}Au${AU_PCTG}_${T_T}K_ss.dat
+    unfix 4
+    unfix 3
+    
+    fix 3 all nvt temp ${T_T} ${T_T} ${DAMPING_FREQ}
+    fix 4 all atom/swap ${SWAP_FREQ} ${SWAP_ATOMS} 54321 ${T_T} types 1 2 ke yes semi-grand no # Conserve KE, particle number and fraction composition
+        run ${SS_STEPS} # ${SS_TIME} ns
+        write_data snap_${UNITARY_TIMESTEP}fs_${N_ATOMS}_Pd${PD_PCTG}Au${AU_PCTG}_${T_T}K_ss.dat
+    unfix 4
+    unfix 3
+undump 1
